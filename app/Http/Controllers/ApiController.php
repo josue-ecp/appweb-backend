@@ -268,4 +268,72 @@ public function storeMundoCompleto(Request $request)
         'message' => '¡Mundo y sus 10 preguntas creados con éxito!'
     ]);
 }
+
+// Confirmar pago de Stripe y activar el pase ilimitado
+public function confirmarPagoStripe(Request $request)
+{
+    $request->validate([
+        'payment_intent_id' => 'required|string',
+        'user_id' => 'required|integer',
+    ]);
+
+    try {
+        \Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
+
+        // Recuperamos el PaymentIntent directamente desde Stripe
+        $paymentIntent = \Stripe\PaymentIntent::retrieve(
+            $request->payment_intent_id
+        );
+
+        // Verificamos que el pago realmente haya sido exitoso
+        if ($paymentIntent->status !== 'succeeded') {
+            return response()->json([
+                'success' => false,
+                'message' => 'El pago todavía no ha sido confirmado por Stripe.'
+            ], 400);
+        }
+
+        // Buscamos al usuario
+        $usuario = DB::table('usuarios')
+            ->where('id', $request->user_id)
+            ->first();
+
+        if (!$usuario) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuario no encontrado.'
+            ], 404);
+        }
+
+        // Evitamos volver a activar el pase si ya lo tiene
+        if (!$usuario->pase_ilimitado) {
+            DB::table('usuarios')
+                ->where('id', $usuario->id)
+                ->update([
+                    'pase_ilimitado' => true,
+                    'actualizado_en' => now()
+                ]);
+        }
+
+        // Obtenemos nuevamente el usuario actualizado
+        $usuarioActualizado = DB::table('usuarios')
+            ->where('id', $usuario->id)
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'message' => '¡Pago confirmado y pase ilimitado activado!',
+            'usuario' => $usuarioActualizado
+        ]);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No se pudo confirmar el pago.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
 }

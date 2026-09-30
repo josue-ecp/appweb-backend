@@ -49,3 +49,4 @@ Route::get('/crear-admin-prueba', function() {
 Route::post('/stripe/crear-sesion', [StripeController::class, 'crearSesionCheckout']);
 
 Route::post('/stripe/crear-payment-intent', [StripeController::class, 'crearPaymentIntent']);
+Route::post('/stripe/confirmar-pago', [ApiController::class, 'confirmarPagoStripe']);
